@@ -1,0 +1,58 @@
+name: Protheus GitOps Gate & Compiler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths:
+      - 'src/**' # Só dispara se houver alterações na pasta de códigos customizados
+
+jobs:
+  # 🛡️ STEP 1: ANÁLISE ESTÁTICA DE CÓDIGO (SONARQUBE TOTVS)
+  # Roda na nuvem pública do GitHub para economizar recursos do seu servidor
+  code-analysis:
+    name: TOTVS Code Analysis (Clean Code Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Código do PR
+        uses: actions/checkout@v4
+
+      - name: Executar TOTVS Code Analyzer / SonarQube
+        # Aqui invocamos a imagem oficial da TOTVS que faz o scan de ADVPL/TLPP
+        run: |
+          echo "🔍 Iniciando varredura com as regras do AppAnalyzer da TOTVS..."
+          docker run --rm -v ${{ github.workspace }}/src:/usr/src/app totvs/advpl-sonar-scanner:latest
+          echo "✅ Validação de qualidade concluída com sucesso!"
+
+  # ⚙️ STEP 2: COMPILAÇÃO ELÁSTICA SÍNCRONA
+  # Só executa se o Step 1 passar. Roda estritamente dentro do seu servidor local.
+  compile-rpo:
+    name: Native RPO Compilation
+    needs: code-analysis
+    runs-on: self-hosted # <--- DIRETIVA CRÍTICA: Executa o Job no seu robô local
+    steps:
+      - name: Limpar Staging Area Anterior no Servidor
+        run: |
+          rm -rf /tmp/compile_staging
+          mkdir -p /tmp/compile_staging
+
+      - name: Checkout dos códigos do PR para o Staging do Servidor
+        uses: actions/checkout@v4
+        with:
+          path: 'temp_repo'
+
+      - name: Injetar fontes na pasta de Staging do Container
+        run: |
+          cp -r temp_repo/src/* /tmp/compile_staging/
+          rm -rf temp_repo
+
+      - name: Disparar Orquestrador de Compilação Protheus
+        run: |
+          # Executa o nosso script unificado inteligente
+          ./run.sh postgres compile
+
+      - name: Limpeza de rastro de build
+        if: always()
+        run: |
+          rm -rf /tmp/compile_staging
