@@ -23,3 +23,7 @@ Desktop.ini
 # --- Protheus Specific Transient Files ---
 *.ptm
 *.rpo
+
+#skills
+.agents
+AGENTS.md
