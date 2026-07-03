@@ -38,10 +38,10 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Limpar Fila de Patches/Staging no Servidor
-        # Limpa a pasta nativa de patches do seu repositório de infraestrutura local
+        # CORRIGIDO: Limpando a pasta real de patches no seu ponto de montagem /media
         run: |
-          rm -rf /home/rodrigo/totvs-protheus-modern-devops/protheus/patches/*
-          mkdir -p /home/rodrigo/totvs-protheus-modern-devops/protheus/patches
+          rm -rf /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/*
+          mkdir -p /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches
 
       - name: Checkout dos códigos do PR
         uses: actions/checkout@v4
@@ -49,15 +49,17 @@ jobs:
           path: 'temp_repo'
 
       - name: Injetar fontes na Fila de Patches da Infraestrutura
+        # CORRIGIDO: Copiando os fontes do PR direto para o destino correto em /media
         run: |
-          cp -r temp_repo/src/* /home/rodrigo/totvs-protheus-modern-devops/protheus/patches/
+          cp -r temp_repo/src/* /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/
           rm -rf temp_repo
 
       - name: Disparar Orquestrador de Compilação Protheus
-        working-directory: /home/rodrigo/totvs-protheus-modern-devops
+        # CORRIGIDO: Direcionando o contexto do Runner para a pasta real do projeto
+        working-directory: /media/rodrigo/dados/totvs-protheus-modern-devops
         run: |
-          # Executa o script. O set -e do bash vai garantir que se o run.sh falhar internamente, o job ficará VERMELHO
-          ./run.sh postgres compile
+          # Executa chamando o script pelo caminho absoluto verdadeiro do seu HD/Partição
+          /media/rodrigo/dados/totvs-protheus-modern-devops/run.sh postgres compile
 
       # 🔴 FEEDBACK DE FALHA
       - name: Reportar Erro de Compilação no PR
@@ -97,5 +99,6 @@ jobs:
 
       - name: Limpeza de rastro de build
         if: always()
+        # CORRIGIDO: Limpando a pasta de patches correta após o término
         run: |
-          rm -rf /home/rodrigo/totvs-protheus-modern-devops/protheus/patches/*
+          rm -rf /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/*
