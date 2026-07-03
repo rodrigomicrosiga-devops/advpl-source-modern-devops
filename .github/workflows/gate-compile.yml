@@ -49,9 +49,9 @@ jobs:
           path: 'temp_repo'
 
       - name: Injetar fontes na Fila de Patches da Infraestrutura
-        # CORRIGIDO: Copiando os fontes do PR direto para o destino correto em /media
         run: |
-          cp -r temp_repo/src/* /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/
+          # Procura todos os arquivos dentro de temp_repo/src/ e copia direto para a raiz de patches, sem levar as subpastas
+          find temp_repo/src/ -type f \( -name "*.prw" -o -name "*.tlpp" \) -exec cp {} /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/ \;
           rm -rf temp_repo
 
       - name: Disparar Orquestrador de Compilação Protheus
