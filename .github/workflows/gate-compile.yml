@@ -57,7 +57,7 @@ jobs:
           rm -rf temp_repo
 
       - name: Disparar Orquestrador de Compilação Protheus
-        working-directory: /home/rodrigo/totvs-protheus-modern-devops # <-- Garanta que esse caminho está exato no seu servidor
+        working-directory: /media/rodrigo/dados/totvs-protheus-modern-devops # <-- Garanta que esse caminho está exato no seu servidor
         run: |
           ./run.sh postgres compile
 
