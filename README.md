@@ -248,3 +248,5 @@ sudo ./svc.sh uninstall
 ```
 
 _Nota: Certifique-se de que a variável `working-directory` dentro do arquivo `.github/workflows/gate-compile.yml` esteja apontando cirurgicamente para a pasta absoluta onde os containers da infraestrutura Protheus (`totvs-protheus-modern-devops`) residem no host operacional, para que o comando `./run.sh` encontre os perfis do `Docker Compose`._
+
+_Nota: O aviso sobre o Node.js 20/24 é apenas uma notificação de depreciação interna do próprio GitHub Actions sobre a imagem base deles, não afeta em nada o funcionamento da esteira_.

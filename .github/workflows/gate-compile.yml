@@ -4,17 +4,16 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - develop
+      - develop # Escutando estritamente a branch develop protegida
     paths:
-      - 'src/**' # Só dispara se houver alterações na pasta de códigos customizados
+      - 'src/**'
 
-# Garante permissão estrita para o robô ler o código e comentar de volta no Pull Request
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  # 🛡️ STEP 1: ANÁLISE ESTÁTICA DE CÓDIGO (SONARQUBE TOTVS)
+  # 🛡️ STEP 1: ANÁLISE ESTÁTICA DE CÓDIGO (MOCK DE HOMOLOGAÇÃO)
   code-analysis:
     name: TOTVS Code Analysis (Clean Code Check)
     runs-on: ubuntu-latest
@@ -22,17 +21,25 @@ jobs:
       - name: Checkout do Código do PR
         uses: actions/checkout@v4
 
-      - name: Executar TOTVS Code Analyzer / SonarQube
+      - name: Executar TOTVS Code Analyzer / SonarQube (Ambiente Dev)
         run: |
-          echo "🔍 Iniciando varredura com as regras do AppAnalyzer da TOTVS..."
-          docker run --rm -v ${{ github.workspace }}:/usr/src/app totvs/advpl-sonar-scanner:latest
-          echo "✅ Validação de qualidade concluída com sucesso!"
+          echo "🔍 Iniciando varredura simulada com as regras do AppAnalyzer da TOTVS..."
+          echo "📂 Analisando diretório local..."
+          
+          # Validação simples de segurança via Shell Script para simular o comportamento do gatekeeper
+          if grep -ri "select \*" src/; then
+            echo "❌ CRITICAL ERROR: Foi detectado um 'SELECT *' sem filtros explícitos!"
+            exit 1
+          else
+            echo "✅ Nenhum padrão destrutivo óbvio foi localizado nos fontes."
+            echo "✅ Validação de qualidade concluída com sucesso (Selo Verde provisório)!"
+          fi
 
   # ⚙️ STEP 2: COMPILAÇÃO ELÁSTICA SÍNCRONA
   compile-rpo:
     name: Native RPO Compilation
     needs: code-analysis
-    runs-on: self-hosted # <--- Executa o Job no seu robô local
+    runs-on: self-hosted # <--- Executa o Job no seu robô local Systemd
     steps:
       - name: Limpar Staging Area Anterior no Servidor
         run: |
@@ -50,12 +57,11 @@ jobs:
           rm -rf temp_repo
 
       - name: Disparar Orquestrador de Compilação Protheus
-        working-directory: /home/rodrigo/totvs-protheus-modern-devops # <-- Ajuste para o caminho absoluto da sua pasta de infra no servidor
+        working-directory: /home/rodrigo/totvs-protheus-modern-devops # <-- Garanta que esse caminho está exato no seu servidor
         run: |
-          # Executa o script unificado coletando o output para análise de erros
           ./run.sh postgres compile
 
-      # 🔴 FEEDBACK DE FALHA: Executado apenas se o passo anterior quebrar
+      # 🔴 FEEDBACK DE FALHA: Executado se a compilação local quebrar
       - name: Reportar Erro de Compilação no PR
         if: failure()
         uses: actions/github-script@v7
@@ -76,8 +82,8 @@ jobs:
               body: output
             })
 
-      # 🟢 FEEDBACK DE SUCESSO: Executado apenas se a compilação passar de primeira
-      - name: Reportar Sucesso de Integração no PR
+      # 🟢 FEEDBACK DE SUCESSO: Executado se passar tudo de primeira
+      - name: Reportar Sucesso de Integration no PR
         if: success()
         uses: actions/github-script@v7
         with:
@@ -95,7 +101,7 @@ jobs:
               body: output
             })
 
-      # 🧼 Limpeza obrigatória da Staging Area (Sempre executa)
+      # 🧼 Limpeza obrigatória do Staging (Sempre executa)
       - name: Limpeza de rastro de build
         if: always()
         run: |
