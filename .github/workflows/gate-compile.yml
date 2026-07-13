@@ -37,11 +37,28 @@ jobs:
     needs: code-analysis
     runs-on: self-hosted
     steps:
-      - name: Limpar Fila de Patches/Staging no Servidor
-        # CORRIGIDO: Limpando a pasta real de patches no seu ponto de montagem /media
+      - name: 🔍 Detectar Caminho da Infraestrutura Ativa
+        id: infra-detector
         run: |
-          rm -rf /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/*
-          mkdir -p /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches
+          echo "=== [GitOps Gate] Mapeando topologia do servidor local ==="
+          
+          if [ -d "/media/rodrigo/dados/docker-protheus-devops-stack" ]; then
+            echo "STK_PATH=/media/rodrigo/dados/docker-protheus-devops-stack" >> $GITHUB_ENV
+            echo "SGBD_TYPE=mssql" >> $GITHUB_ENV
+            echo "💡 Nova infraestrutura detectada: [docker-protheus-devops-stack] operando em MSSQL."
+          elif [ -d "/media/rodrigo/dados/totvs-protheus-modern-devops" ]; then
+            echo "STK_PATH=/media/rodrigo/dados/totvs-protheus-modern-devops" >> $GITHUB_ENV
+            echo "SGBD_TYPE=postgres" >> $GITHUB_ENV
+            echo "💡 Infraestrutura clássica detectada: [totvs-protheus-modern-devops] operando em Postgres."
+          else
+            echo "❌ ERRO CRÍTICO: Nenhuma raiz de infraestrutura Protheus válida foi localizada no host do Runner!"
+            exit 1
+          fi
+
+      - name: Limpar Fila de Patches/Staging no Servidor
+        run: |
+          rm -rf $STK_PATH/protheus/patches/*
+          mkdir -p $STK_PATH/protheus/patches
 
       - name: Checkout dos códigos do PR
         uses: actions/checkout@v4
@@ -50,16 +67,14 @@ jobs:
 
       - name: Injetar fontes na Fila de Patches da Infraestrutura
         run: |
-          # Procura todos os arquivos dentro de temp_repo/src/ e copia direto para a raiz de patches, sem levar as subpastas
-          find temp_repo/src/ -type f \( -name "*.prw" -o -name "*.tlpp" \) -exec cp {} /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/ \;
+          find temp_repo/src/ -type f \( -name "*.prw" -o -name "*.tlpp" \) -exec cp {} $STK_PATH/protheus/patches/ \;
           rm -rf temp_repo
 
       - name: Disparar Orquestrador de Compilação Protheus
-        # CORRIGIDO: Direcionando o contexto do Runner para a pasta real do projeto
-        working-directory: /media/rodrigo/dados/totvs-protheus-modern-devops
         run: |
-          # Executa chamando o script pelo caminho absoluto verdadeiro do seu HD/Partição
-          /media/rodrigo/dados/totvs-protheus-modern-devops/run.sh postgres compile
+          # Navega dinamicamente via Bash e executa o maestro correto
+          cd $STK_PATH
+          ./run.sh $SGBD_TYPE compile
 
       # 🔴 FEEDBACK DE FALHA
       - name: Reportar Erro de Compilação no PR
@@ -69,9 +84,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const output = `### ❌ Falha Crítica na Compilação do RPO!
-            O compilador nativo da TOTVS detectou erros de sintaxe nos códigos customizados.
+            O compilador nativo da TOTVS detectou erros de sintaxe nos códigos customizados do seu Pull Request.
             
-            ⚠️ **O Rollback automático foi acionado no servidor.** O ambiente permanece estável na versão anterior.`;
+            ⚠️ **O Rollback automático foi acionado no servidor.** O ambiente permanece íntegro na versão estável anterior.`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -88,7 +103,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const output = `### ✅ Compilação Executada com Sucesso!
-            Todos os fontes customizados foram validados sintaticamente e integrados com sucesso ao \`custom.rpo\` no servidor.`;
+            Todos os fontes customizados deste PR foram compilados com sucesso ao \`custom.rpo\` no ambiente dev/homolog.`;
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -99,6 +114,5 @@ jobs:
 
       - name: Limpeza de rastro de build
         if: always()
-        # CORRIGIDO: Limpando a pasta de patches correta após o término
         run: |
-          rm -rf /media/rodrigo/dados/totvs-protheus-modern-devops/protheus/patches/*
+          rm -rf $STK_PATH/protheus/patches/*
